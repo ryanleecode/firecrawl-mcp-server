@@ -6,27 +6,34 @@ on:
   pull_request:
     branches: [main]
 
+# Set minimal permissions by default
+permissions:
+  contents: read
+
 jobs:
   build:
     runs-on: ubuntu-latest
 
-    steps:
-      - uses: actions/checkout@v3
+    # Explicit minimal permissions for this job
+    permissions:
+      contents: read
 
-      - name: Use Node.js
-        uses: actions/setup-node@v3
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          node-version: '20.x'
-          cache: 'npm'
+          persist-credentials: false # Prevent accidental credential exposure
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install
 
       - name: Build
-        run: npm run build
-
-      - name: Lint
-        run: npm run lint
+        run: bun run build
 
       - name: Test
-        run: npm test
+        run: bun run test:run

@@ -5,26 +5,48 @@ on:
     types: [created]
   workflow_dispatch:
 
+# Set minimal permissions by default
+permissions:
+  contents: read
+
 jobs:
-  publish:
-    runs-on: ubuntu-latest
+  build-and-publish:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        include:
+          - os: ubuntu-latest
+            binary-name: firecrawl-mcp-linux-x64
+          - os: macos-latest
+            binary-name: firecrawl-mcp-darwin-x64
+          - os: windows-latest
+            binary-name: firecrawl-mcp-windows-x64.exe
+
+    runs-on: ${{ matrix.os }}
+
+    # Explicit permissions for this job - only what's needed for publishing releases
+    permissions:
+      contents: write # Needed to upload release assets
 
     steps:
-      - uses: actions/checkout@v3
-
-      - name: Use Node.js
-        uses: actions/setup-node@v3
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          node-version: '20.x'
-          registry-url: 'https://registry.npmjs.org'
+          persist-credentials: false
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
       - name: Install dependencies
-        run: npm ci
+        run: bun install
 
-      - name: Build
-        run: npm run build
+      - name: Build binary
+        run: bun run build
 
-      - name: Publish to NPM
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Upload binary to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ./dist/firecrawl-mcp${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          name: ${{ matrix.binary-name }}

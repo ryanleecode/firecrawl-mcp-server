@@ -4,6 +4,14 @@ A Model Context Protocol (MCP) server implementation that integrates with [Firec
 
 > Big thanks to [@vrknetha](https://github.com/vrknetha), [@knacklabs](https://www.knacklabs.ai) for the initial implementation!
 
+## Architecture
+
+This MCP server is built using the [Effect](https://effect.website/) framework for functional programming and type safety. The architecture includes:
+
+- **Effect Framework**: Provides composable, type-safe error handling and dependency injection
+- **Bun Runtime**: Fast JavaScript runtime and build tool
+- **Vitest Testing**: Modern testing framework with excellent TypeScript support
+- **Compiled Binaries**: Single executable files for easy distribution
 
 ## Features
 
@@ -93,15 +101,83 @@ Add this to your `./codeium/windsurf/model_config.json`:
 }
 ```
 
-### Running with SSE Local Mode
+### Running with SSE Transport
 
-To run the server using Server-Sent Events (SSE) locally instead of the default stdio transport:
+The server supports both stdio (default) and Server-Sent Events (SSE) transports. To run using SSE:
 
 ```bash
-env SSE_LOCAL=true FIRECRAWL_API_KEY=fc-YOUR_API_KEY npx -y firecrawl-mcp
+env TRANSPORT=sse PORT=3000 FIRECRAWL_API_KEY=fc-YOUR_API_KEY npx -y firecrawl-mcp
 ```
 
-Use the url: http://localhost:3000/sse
+Then connect to: `http://localhost:3000/sse`
+
+### Docker Deployment
+
+The server provides Docker images with support for both stdio and SSE transports, including adaptive health checks.
+
+#### Quick Start with Docker Compose
+
+```bash
+# For stdio mode (default, for MCP clients)
+export FIRECRAWL_API_KEY=fc-YOUR_API_KEY
+docker-compose --profile stdio up
+
+# For SSE mode (for HTTP clients)
+export FIRECRAWL_API_KEY=fc-YOUR_API_KEY
+docker-compose --profile sse up
+
+# For distroless security-focused build (SSE mode)
+docker-compose --profile distroless up
+```
+
+#### Manual Docker Commands
+
+**Stdio Mode** (for MCP clients like Claude, Cursor):
+```bash
+docker build -t firecrawl-mcp .
+docker run -it --rm \
+  -e FIRECRAWL_API_KEY=fc-YOUR_API_KEY \
+  -e TRANSPORT=stdio \
+  firecrawl-mcp
+```
+
+**SSE Mode** (for HTTP clients, web applications):
+```bash
+docker build -t firecrawl-mcp .
+docker run -p 3000:3000 --rm \
+  -e FIRECRAWL_API_KEY=fc-YOUR_API_KEY \
+  -e TRANSPORT=sse \
+  -e PORT=3000 \
+  firecrawl-mcp
+```
+
+**Distroless (Security-focused, SSE only)**:
+```bash
+docker build -f Dockerfile.distroless -t firecrawl-mcp:distroless .
+docker run -p 3000:3000 --rm \
+  -e FIRECRAWL_API_KEY=fc-YOUR_API_KEY \
+  -e TRANSPORT=sse \
+  -e PORT=3000 \
+  firecrawl-mcp:distroless
+```
+
+#### Health Checks
+
+The Docker containers include adaptive health checks:
+
+- **SSE Mode**: Checks if the HTTP server is responding on the configured port
+- **Stdio Mode**: Verifies the process is running and responsive
+
+Health check intervals: 30s, timeout: 5s, start period: 10s, retries: 3
+
+#### Environment Variables for Docker
+
+| Variable            | Description                      | Default | Required |
+| ------------------- | -------------------------------- | ------- | -------- |
+| `TRANSPORT`         | Transport mode: `stdio` or `sse` | `stdio` | No       |
+| `PORT`              | Port for SSE mode                | `3000`  | No       |
+| `FIRECRAWL_API_KEY` | Firecrawl API key                | -       | Yes      |
+| `FIRECRAWL_API_URL` | Custom API endpoint              | -       | No       |
 
 ### Installing via Smithery (Legacy)
 
@@ -316,16 +392,16 @@ Use this guide to select the right tool for your task:
 
 ### Quick Reference Table
 
-| Tool                | Best for                                 | Returns         |
-|---------------------|------------------------------------------|-----------------|
-| scrape              | Single page content                      | markdown/html   |
-| batch_scrape        | Multiple known URLs                      | markdown/html[] |
-| map                 | Discovering URLs on a site               | URL[]           |
-| crawl               | Multi-page extraction (with limits)      | markdown/html[] |
-| search              | Web search for info                      | results[]       |
-| extract             | Structured data from pages               | JSON            |
-| deep_research       | In-depth, multi-source research          | summary, sources|
-| generate_llmstxt    | LLMs.txt for a domain                    | text            |
+| Tool             | Best for                            | Returns          |
+| ---------------- | ----------------------------------- | ---------------- |
+| scrape           | Single page content                 | markdown/html    |
+| batch_scrape     | Multiple known URLs                 | markdown/html[]  |
+| map              | Discovering URLs on a site          | URL[]            |
+| crawl            | Multi-page extraction (with limits) | markdown/html[]  |
+| search           | Web search for info                 | results[]        |
+| extract          | Structured data from pages          | JSON             |
+| deep_research    | In-depth, multi-source research     | summary, sources |
+| generate_llmstxt | LLMs.txt for a domain               | text             |
 
 ## Available Tools
 
@@ -749,13 +825,16 @@ Example error response:
 
 ```bash
 # Install dependencies
-npm install
+pnpm install
 
-# Build
-npm run build
+# Run in development mode
+pnpm dev
+
+# Build for production
+pnpm build
 
 # Run tests
-npm test
+pnpm test
 ```
 
 ### Contributing
